@@ -19,7 +19,7 @@
       width: 250px;
       background: linear-gradient(135deg, #4a90e2, #1457a7);
       padding: 20px;
-      height: calc(100vh - 40px); /* 因為 body 左右有 margin */
+      height: calc(100vh - 40px);
       overflow-y: auto;
       position: fixed;
       top: 20px;
@@ -53,7 +53,7 @@
       background: rgba(255, 255, 255, 0.2);
     }
     .main-content {
-      margin: 20px 20px 20px 320px; /* 左側留出 sidebar 空間，右側也有留白 */
+      margin: 20px 20px 20px 320px;
       width: calc(100% - 310px);
     }
     .file-section {
@@ -95,11 +95,29 @@
       cursor: pointer;
       box-shadow: 0 2px 5px rgba(0,0,0,0.3);
       transition: background-color 0.3s, transform 0.3s;
-      display: none; /* 預設隱藏 */
+      display: none;
     }
     #toTop:hover {
       background-color: #1457a7;
       transform: translateY(-5px);
+    }
+    /* 自訂路徑區塊 */
+    .path-setting {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-bottom: 20px;
+      background: #fff;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .path-setting label {
+      display: inline-block;
+      width: 140px;
+    }
+    .path-setting input {
+      width: 70%;
+      padding: 5px;
+      margin-bottom: 10px;
     }
     /* 響應式調整 */
     @media (max-width: 768px) {
@@ -137,6 +155,31 @@
   </nav>
   <div class="main-content">
     <h1>圖像檢視與指標計算</h1>
+    <!-- 自訂路徑功能 Start -->
+    <div class="path-setting">
+      <h2>自訂路徑設定</h2>
+      <form id="pathForm">
+        <div>
+          <label for="originalPath">Original 目錄:</label>
+          <input type="text" id="originalPath" value="{{ original_path }}">
+        </div>
+        <div>
+          <label for="predictPath">Predict 目錄:</label>
+          <input type="text" id="predictPath" value="{{ predict_path }}">
+        </div>
+        <div>
+          <label for="groundTruthPath">Ground Truth 目錄:</label>
+          <input type="text" id="groundTruthPath" value="{{ ground_truth_path }}">
+        </div>
+        <div>
+          <label for="drawPredictPath">Draw Predict 目錄:</label>
+          <input type="text" id="drawPredictPath" value="{{ draw_predict_path }}">
+        </div>
+        <button type="button" onclick="updatePaths()">更新路徑</button>
+      </form>
+      <p id="pathMsg"></p>
+    </div>
+    <!-- 自訂路徑功能 End -->
     <!-- 統計數量與比例 -->
     <div>
         {% if missing_in_predict %}
@@ -204,15 +247,37 @@
     function scrollToTop() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    // 依捲動高度決定 ToTOP 按鈕是否顯示
     window.addEventListener('scroll', function() {
       var btn = document.getElementById('toTop');
-      if (window.pageYOffset > 300) {
-        btn.style.display = 'block';
-      } else {
-        btn.style.display = 'none';
-      }
+      btn.style.display = (window.pageYOffset > 300) ? 'block' : 'none';
     });
+
+    // 更新路徑功能
+    function updatePaths() {
+      var data = {
+        original: document.getElementById("originalPath").value,
+        predict: document.getElementById("predictPath").value,
+        ground_truth: document.getElementById("groundTruthPath").value,
+        draw_predict: document.getElementById("drawPredictPath").value
+      };
+      
+      fetch('/update_paths', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(result => {
+        document.getElementById("pathMsg").innerText = result.message;
+        if (result.success) {
+          // 更新成功後重新整理頁面
+          setTimeout(() => { location.reload(); }, 1000);
+        }
+      })
+      .catch(error => {
+        document.getElementById("pathMsg").innerText = "更新失敗";
+      });
+    }
   </script>
 </body>
 </html>

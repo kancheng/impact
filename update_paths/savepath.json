@@ -1,0 +1,6 @@
+{
+  "original": "D:\\proj\\impact\\static\\original",
+  "predict": "D:\\proj\\impact\\static\\predict",
+  "ground_truth": "D:\\proj\\impact\\static\\ground_truth",
+  "draw_predict": "D:\\proj\\impact\\static\\draw_predict"
+}

@@ -12,10 +12,12 @@ GT_DIR   = os.path.join(app.static_folder, 'ground_truth')
 DRAW_DIR = os.path.join(app.static_folder, 'draw_predict')
 
 def get_filenames_without_ext(directory):
+    # 只保留有效的圖像檔案
+    valid_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff', '.tif'}
     return set(
         os.path.splitext(f)[0]
         for f in os.listdir(directory)
-        if os.path.isfile(os.path.join(directory, f))
+        if os.path.isfile(os.path.join(directory, f)) and os.path.splitext(f)[1].lower() in valid_extensions
     )
 
 def get_common_filenames():
@@ -27,7 +29,8 @@ def get_common_filenames():
 
 def find_file(directory, base_name):
     for f in os.listdir(directory):
-        if os.path.splitext(f)[0] == base_name:
+        # 只回傳有效的圖像檔案
+        if os.path.splitext(f)[0] == base_name and os.path.splitext(f)[1].lower() in {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff', '.tif'}:
             return f
     return None
 
@@ -46,7 +49,10 @@ def index():
     # 檢查 Predict 中沒有檢測到圖（前景像素為 0）的檔案
     no_detection_files = []
     for name in pred_names:
-        pred_path = os.path.join(PRED_DIR, find_file(PRED_DIR, name))
+        pred_file = find_file(PRED_DIR, name)
+        if pred_file is None:
+            continue
+        pred_path = os.path.join(PRED_DIR, pred_file)
         pred_img = Image.open(pred_path).convert('L')
         threshold = 128
         pred_array = np.array(pred_img) > threshold
@@ -113,4 +119,3 @@ def index():
 
 if __name__ == '__main__':
     app.run(debug=True)
-

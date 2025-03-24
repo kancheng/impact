@@ -99,17 +99,60 @@ def index():
     
     # 檢查 Predict 中沒有檢測到圖（前景像素為 0）的檔案
     no_detection_files = []
+    threshold = 128
     for name in pred_names:
         pred_file = find_file(PRED_DIR, name)
         if not pred_file:
             continue
         pred_path = os.path.join(PRED_DIR, pred_file)
         pred_img = Image.open(pred_path).convert('L')
-        threshold = 128
         pred_array = np.array(pred_img) > threshold
         if pred_array.sum() == 0:
             no_detection_files.append(name)
     
+    # 新增部分：計算整體漏檢率與過殺率
+    orig_names_for_metric = get_filenames_without_ext(ORIG_DIR)
+    gt_names = get_filenames_without_ext(GT_DIR)
+    all_metric_names = sorted(list(orig_names_for_metric & gt_names))
+    
+    total_target = 0       # 實際有目標的圖片數（ground_truth 前景 > 0）
+    total_no_target = 0    # 實際無目標的圖片數（ground_truth 全背景）
+    missed_count = 0       # 漏檢數：實際有目標但預測全 0
+    overkill_count = 0     # 過殺數：實際無目標但預測有前景
+    missed_files = []
+    overkill_files = []
+    
+    for name in all_metric_names:
+        gt_file = find_file(GT_DIR, name)
+        if not gt_file:
+            continue
+        gt_path = os.path.join(GT_DIR, gt_file)
+        gt_img = Image.open(gt_path).convert('L')
+        gt_array = np.array(gt_img) > threshold
+
+        pred_file = find_file(PRED_DIR, name)
+        if pred_file:
+            pred_path = os.path.join(PRED_DIR, pred_file)
+            pred_img = Image.open(pred_path).convert('L')
+            pred_array = np.array(pred_img) > threshold
+        else:
+            # 模擬與 ground_truth 同樣 shape 的全 0 圖
+            pred_array = np.zeros_like(np.array(gt_img))
+        
+        if gt_array.sum() > 0:
+            total_target += 1
+            if pred_array.sum() == 0:
+                missed_count += 1
+                missed_files.append(name)
+        else:
+            total_no_target += 1
+            if pred_array.sum() > 0:
+                overkill_count += 1
+                overkill_files.append(name)
+    
+    overall_missed_rate = missed_count / total_target if total_target > 0 else 0
+    overall_overkill_rate = overkill_count / total_no_target if total_no_target > 0 else 0
+
     # 針對所有共同檔名產生檔案列表與指標計算
     common_names = get_common_filenames()
     files = []
@@ -136,7 +179,6 @@ def index():
         pred_img = Image.open(os.path.join(PRED_DIR, pred_file)).convert('L')
         gt_img = Image.open(os.path.join(GT_DIR, gt_file)).convert('L')
         
-        threshold = 128
         pred_array = np.array(pred_img) > threshold
         gt_array = np.array(gt_img) > threshold
         
@@ -148,6 +190,13 @@ def index():
         gt_area = gt_array.sum()
         dice = (2 * intersection) / (pred_area + gt_area) if (pred_area + gt_area) != 0 else 0
         
+        # 判斷圖片是否為漏檢或過殺
+        error_type = ""
+        if gt_array.sum() > 0 and pred_array.sum() == 0:
+            error_type = "漏檢"
+        elif gt_array.sum() == 0 and pred_array.sum() > 0:
+            error_type = "過殺"
+        
         total_iou += iou
         total_dice += dice
         
@@ -158,7 +207,8 @@ def index():
             'gt_url': gt_url,
             'draw_url': draw_url,
             'iou': iou,
-            'dice': dice
+            'dice': dice,
+            'error_type': error_type
         })
     
     count = len(files)
@@ -174,6 +224,10 @@ def index():
                            pred_ratio=pred_ratio,
                            no_detection_files=no_detection_files,
                            missing_in_predict=missing_in_predict,
+                           overall_missed_rate=overall_missed_rate,
+                           overall_overkill_rate=overall_overkill_rate,
+                           missed_files=missed_files,
+                           overkill_files=overkill_files,
                            # 將目前路徑傳入模板供自訂路徑區塊顯示
                            original_path=ORIG_DIR,
                            predict_path=PRED_DIR,

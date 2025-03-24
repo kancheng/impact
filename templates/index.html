@@ -238,6 +238,13 @@
       <p>平均 IoU 指標：{{ avg_iou }}</p>
       <p>平均 Dice 指標：{{ avg_dice }}</p>
     </div>
+    <!-- 新增的整體漏檢率與過殺率 -->
+    <div>
+      <p>整體漏檢率：{{ overall_missed_rate }}</p>
+      <p>整體過殺率：{{ overall_overkill_rate }}</p>
+      <p>漏檢圖片：{% if missed_files %} {{ missed_files | join(', ') }} {% else %} 無 {% endif %}</p>
+      <p>過殺圖片：{% if overkill_files %} {{ overkill_files | join(', ') }} {% else %} 無 {% endif %}</p>
+    </div>
     <!-- 圖像與指標展示，每個區塊設定錨點 id -->
     {% for file in files %}
     <div class="file-section" id="{{ file.filename }}">
@@ -263,6 +270,9 @@
       <div>
         <p>IoU 指標：{{ file.iou }}</p>
         <p>Dice 指標：{{ file.dice }}</p>
+        {% if file.error_type %}
+        <p>錯誤類型：{{ file.error_type }}</p>
+        {% endif %}
       </div>
     </div>
     {% endfor %}

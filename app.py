@@ -5,7 +5,7 @@ import numpy as np
 
 app = Flask(__name__)
 
-# 預設目錄設定（使用 app.static_folder 為基底）
+# 預設目錄設定（以 app.static_folder 為基底）
 DEFAULT_PATHS = {
     "original": os.path.join(app.static_folder, "original"),
     "predict": os.path.join(app.static_folder, "predict"),
@@ -48,7 +48,6 @@ GT_DIR = paths["ground_truth"]
 DRAW_DIR = paths["draw_predict"]
 
 def get_filenames_without_ext(directory):
-    # 只保留有效的圖像檔案
     valid_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff', '.tif'}
     return set(
         os.path.splitext(f)[0]
@@ -80,14 +79,12 @@ def get_url(file_full):
         file_full_abs = os.path.abspath(file_full)
         if file_full_abs.startswith(static_folder_abs):
             rel = os.path.relpath(file_full_abs, start=static_folder_abs)
-            # 將路徑分隔符統一為 '/'
             rel = rel.replace(os.path.sep, '/')
             return url_for('static', filename=rel)
     return file_full
 
 @app.route('/')
 def index():
-    # 取得 original 與 predict 的檔案名稱
     orig_names = get_filenames_without_ext(ORIG_DIR)
     pred_names = get_filenames_without_ext(PRED_DIR)
     count_orig = len(orig_names)
@@ -110,15 +107,15 @@ def index():
         if pred_array.sum() == 0:
             no_detection_files.append(name)
     
-    # 新增部分：計算整體漏檢率與過殺率
+    # 計算整體漏檢率與過殺率
     orig_names_for_metric = get_filenames_without_ext(ORIG_DIR)
     gt_names = get_filenames_without_ext(GT_DIR)
     all_metric_names = sorted(list(orig_names_for_metric & gt_names))
     
-    total_target = 0       # 實際有目標的圖片數（ground_truth 前景 > 0）
-    total_no_target = 0    # 實際無目標的圖片數（ground_truth 全背景）
-    missed_count = 0       # 漏檢數：實際有目標但預測全 0
-    overkill_count = 0     # 過殺數：實際無目標但預測有前景
+    total_target = 0
+    total_no_target = 0
+    missed_count = 0
+    overkill_count = 0
     missed_files = []
     overkill_files = []
     
@@ -136,7 +133,6 @@ def index():
             pred_img = Image.open(pred_path).convert('L')
             pred_array = np.array(pred_img) > threshold
         else:
-            # 模擬與 ground_truth 同樣 shape 的全 0 圖
             pred_array = np.zeros_like(np.array(gt_img))
         
         if gt_array.sum() > 0:
@@ -164,13 +160,11 @@ def index():
         gt_file   = find_file(GT_DIR, name)
         draw_file = find_file(DRAW_DIR, name)
         
-        # 取得完整檔案路徑
         orig_full = os.path.join(ORIG_DIR, orig_file) if orig_file else None
         pred_full = os.path.join(PRED_DIR, pred_file) if pred_file else None
         gt_full   = os.path.join(GT_DIR, gt_file) if gt_file else None
         draw_full = os.path.join(DRAW_DIR, draw_file) if draw_file else None
         
-        # 以 app.static_folder 為基底取得相對路徑
         orig_url = get_url(orig_full)
         pred_url = get_url(pred_full)
         gt_url   = get_url(gt_full)
@@ -190,7 +184,6 @@ def index():
         gt_area = gt_array.sum()
         dice = (2 * intersection) / (pred_area + gt_area) if (pred_area + gt_area) != 0 else 0
         
-        # 判斷圖片是否為漏檢或過殺
         error_type = ""
         if gt_array.sum() > 0 and pred_array.sum() == 0:
             error_type = "漏檢"
@@ -228,7 +221,6 @@ def index():
                            overall_overkill_rate=overall_overkill_rate,
                            missed_files=missed_files,
                            overkill_files=overkill_files,
-                           # 將目前路徑傳入模板供自訂路徑區塊顯示
                            original_path=ORIG_DIR,
                            predict_path=PRED_DIR,
                            ground_truth_path=GT_DIR,
@@ -238,7 +230,7 @@ def index():
 def update_paths():
     new_paths = request.get_json()
     required_keys = ["original", "predict", "ground_truth", "draw_predict"]
-    # 檢查是否都提供，若路徑不存在則自動產生
+    # 檢查是否提供所有必要欄位，若路徑不存在則嘗試建立
     for key in required_keys:
         if key not in new_paths:
             return jsonify({"success": False, "message": f"缺少 {key} 欄位"}), 400
